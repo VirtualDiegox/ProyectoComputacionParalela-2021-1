@@ -6,7 +6,7 @@ import csv
 def Average(lst):
     return sum(lst) / len(lst)
 
-num_hilos = [1,2,4,6,8,10,12,16]
+num_hilos = [1,2,4,6,8,10,12,14,16]
 intentos_omp =[]
 programa = "./filefftomp"
 times_omp = []

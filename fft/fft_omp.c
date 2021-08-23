@@ -108,7 +108,7 @@ int main(int argc, char *argv[]){
     //array[2] = -1;
     //array[3] = 1;
 
-	size_t n = 65535;
+	size_t n = 131071;
     double complex array[n+1];
     for(int i=0;i<n+1;i++){
         array[i]=rand()%100;
