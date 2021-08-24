@@ -29,9 +29,20 @@ __global__ void transformCUDA(int *bloques,size_t *n,size_t *size,size_t *halfsi
 
 	for (size_t i = 0; i < *n; i += *size) {
 		for (size_t j = i, k = 0; j < i + *halfsize; j++, k += *tablestep) {
-			complex<double> temp = vec[j + *halfsize] * expTable[k];
-			vec[j + *halfsize] = vec[j] - temp;
-			vec[j] += temp;
+			//complex<double> temp = vec[j + *halfsize] * expTable[k];
+			//vec[j + *halfsize] = vec[j] - temp;
+			//vec[j] += temp;
+			double temp_real = real(vec[j + *halfsize]) * real(expTable[k]) - imag(vec[j + *halfsize]) * imag(expTable[k]);
+			double temp_img = real(vec[j + *halfsize]) * imag(expTable[k]) + imag(vec[j + *halfsize]) * real(expTable[k]);
+			
+			double vec_real = real(vec[j]);
+			double vec_img = imag(vec[j]);
+			complex<double>temp(vec_real-temp_real,vec_img-temp_img);
+			vec[j + *halfsize] = temp;
+			complex<double>temp2(vec_real+temp_real,vec_img+temp_img);
+			vec[j] = temp2;
+
+			
 		}
 	}
 
@@ -93,12 +104,16 @@ void Fft::transformRadix2(thrust::host_vector<complex<double> > &vec, bool inver
 	complex<double> * d_vec_pointer = thrust::raw_pointer_cast(&d_vec[0]);
 
 
-
+	struct timeval* tval_before,* tval_after,* tval_result;
+    tval_before = (struct timeval*)malloc(sizeof(struct timeval));
+    tval_after = (struct timeval*)malloc(sizeof(struct timeval));
+    tval_result = (struct timeval*)malloc(sizeof(struct timeval));
 	
 
 
 	
 	// Cooley-Tukey decimation-in-time radix-2 FFT
+	gettimeofday(tval_before, NULL);
 	for (size_t size = 2; size <= n; size *= 2) {
 		size_t halfsize = size / 2;
 		size_t tablestep = n / size;
@@ -113,19 +128,30 @@ void Fft::transformRadix2(thrust::host_vector<complex<double> > &vec, bool inver
 
 		cudaStream_t stream;
     	cudaStreamCreate(&stream);
+		
 		transformCUDA<<<bloques,hilos,0,stream>>>(d_bloques,d_n,d_size,d_halfsize,d_tablestep,d_vec_pointer,d_expTable_pointer);
 		cudaStreamSynchronize(stream);
+
+		cudaFree(d_halfsize);
+		cudaFree(d_tablestep);
+		cudaFree(d_size);
+
 		
-		for (size_t i = 0; i < n; i += size) {
-			for (size_t j = i, k = 0; j < i + halfsize; j++, k += tablestep) {
-				complex<double> temp = vec[j + halfsize] * expTable[k];
-				vec[j + halfsize] = vec[j] - temp;
-				vec[j] += temp;
-			}
-		}
+		//for (size_t i = 0; i < n; i += size) {
+			//for (size_t j = i, k = 0; j < i + halfsize; j++, k += tablestep) {
+				//complex<double> temp = vec[j + halfsize] * expTable[k];
+				//vec[j + halfsize] = vec[j] - temp;
+				//vec[j] += temp;
+			//}
+		//}
 		if (size == n)  // Prevent overflow in 'size *= 2'
 			break;
 	}
+	vec = d_vec;
+	gettimeofday(tval_after, NULL);
+	timersub(tval_after, tval_before, tval_result);
+    printf("%ld.%06ld\n", (long int)tval_result->tv_sec, (long int)tval_result->tv_usec);
+	
 	cudaFree(d_n);
 	cudaFree(d_bloques);
 }
@@ -151,7 +177,7 @@ int main(int argc, char *argv[]) {
 	int bloques = atoi(argv[2]);
 	
 	
-	size_t n = 65536;
+	size_t n = 4;
 	
 	
 	testFft(n,hilos, bloques);
@@ -162,18 +188,21 @@ int main(int argc, char *argv[]) {
 
 
 static void testFft(int n,int hilos,int bloques) {
-	struct timeval* tval_before,* tval_after,* tval_result;
-    tval_before = (struct timeval*)malloc(sizeof(struct timeval));
-    tval_after = (struct timeval*)malloc(sizeof(struct timeval));
-    tval_result = (struct timeval*)malloc(sizeof(struct timeval));
+	
 	const thrust::host_vector<complex<double> > input = randomComplexes(n);
 	
-	thrust::host_vector<complex<double> > actual = input;
-	gettimeofday(tval_before, NULL);
+	//thrust::host_vector<complex<double> > actual = input;
+	thrust::host_vector<complex<double> > actual (n);
+	actual[0] = 2;
+    actual[1] = 3;
+    actual[2] = -1;
+    actual[3] = 1;
+	
 	Fft::transform(actual, false,hilos, bloques);
-	gettimeofday(tval_after, NULL);
-	timersub(tval_after, tval_before, tval_result);
-    printf("%ld.%06ld\n", (long int)tval_result->tv_sec, (long int)tval_result->tv_usec);
+
+	for(int i = 0;i < n;i++){
+      printf("%f + %fi\n", real(actual[i]), imag(actual[i]));
+    }
 	
 }
 

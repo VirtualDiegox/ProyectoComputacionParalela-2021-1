@@ -101,18 +101,18 @@ int main(int argc, char *argv[]){
     tval_after = (struct timeval*)malloc(sizeof(struct timeval));
     tval_result = (struct timeval*)malloc(sizeof(struct timeval));
     omp_set_num_threads(hilos);
-    //size_t n = 3;
-    //double complex array[n+1];
-    //array[0] = 2;
-    //array[1] = 3;
-    //array[2] = -1;
-    //array[3] = 1;
-
-	size_t n = 131071;
+    size_t n = 3;
     double complex array[n+1];
-    for(int i=0;i<n+1;i++){
-        array[i]=rand()%100;
-    }
+    array[0] = 2;
+    array[1] = 3;
+    array[2] = -1;
+    array[3] = 1;
+
+	//size_t n = 131071;
+    //double complex array[n+1];
+    //for(int i=0;i<n+1;i++){
+    //    array[i]=rand()%100;
+    //}
 	//for(int i = 0;i <= n;i++){
       //printf("%f + %fi\n", creal(array[i]), cimag(array[i]));
     //}
@@ -124,9 +124,9 @@ int main(int argc, char *argv[]){
 	timersub(tval_after, tval_before, tval_result);
     printf("%ld.%06ld\n", (long int)tval_result->tv_sec, (long int)tval_result->tv_usec);
 		
-    //for(int i = 0;i <= n;i++){
+    for(int i = 0;i <= n;i++){
     
-      //printf("%f + %fi\n", creal(array[i]), cimag(array[i]));
-    //}
+      printf("%f + %fi\n", creal(array[i]), cimag(array[i]));
+    }
     return 0;
 }
