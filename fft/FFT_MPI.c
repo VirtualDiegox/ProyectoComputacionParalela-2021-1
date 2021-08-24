@@ -53,7 +53,7 @@ bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse,int argc, 
 	}
 	
 	// Cooley-Tukey decimation-in-time radix-2 FFT
-	for (size_t size = 2; size <= n; size *= 2) {
+	/*for (size_t size = 2; size <= n; size *= 2) {
 		size_t halfsize = size / 2;
 		size_t tablestep = n / size;
 		for (size_t i = 0; i < n; i += size) {
@@ -68,14 +68,16 @@ bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse,int argc, 
         
 		if (size == n)  // Prevent overflow in 'size *= 2'
 			break;
-	}
+	}*/
 
     int tasks, iam;
-    MPI_Status status;
-    int IndexToBeProcessed [n/2];
+    
+    
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &tasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &iam);
+    MPI_Status status;
+    int IndexToBeProcessed [n/2];
     int FromIndex = (n/2)/tasks * iam;
     int ToIndex = ((n/2)/tasks * (iam+1))-1;
     printf("task %d FromIndex: %d ToIndex: %d\n",iam,FromIndex,ToIndex);
@@ -86,13 +88,23 @@ bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse,int argc, 
             if(iam == 0){
                 IndexToBeProcessed[0]= 0;
                 for (int x = 1;x < n/2;x++){
+                    
                     IndexToBeProcessed[x] = (IndexToBeProcessed[x-1]+1)%halfsize==0 ? IndexToBeProcessed[x-1] + halfsize + 1 :  IndexToBeProcessed[x-1] + 1;
-                    printf("index %d to be processed: %d\n",x,IndexToBeProcessed[x]);
+                    //printf("index %d to be processed: %d\n",x,IndexToBeProcessed[x]);
+
+                    if (x == n/2) break;
+                    
+                    
                 }
-                
-            }
-            MPI_Bcast(IndexToBeProcessed,n/2, MPI_INT,0,MPI_COMM_WORLD);
+                  
+            }    
+            
+            
+           
             MPI_Barrier(MPI_COMM_WORLD);
+            
+            MPI_Bcast(IndexToBeProcessed,n/2, MPI_INT,0,MPI_COMM_WORLD);
+            
             for(int j = FromIndex;j<=ToIndex;j++){
                 size_t k = tablestep*(IndexToBeProcessed[j]%size);
                 size_t l = IndexToBeProcessed[j] + halfsize;
@@ -100,44 +112,67 @@ bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse,int argc, 
 				vec[l] = vec[IndexToBeProcessed[j]] - temp;
 				vec[IndexToBeProcessed[j]] += temp;
             }
+            
             MPI_Barrier(MPI_COMM_WORLD);
             for (int x = 0;x < n/2;x++){
-                MPI_Sendrecv(
-                                    &vec[IndexToBeProcessed[x]],
-                                    1,
-                                    MPI_C_COMPLEX,
-                                    0,
-                                    0,
-                                    &vec[IndexToBeProcessed[x]],
-                                    1,
-                                    MPI_C_COMPLEX,
-                                    (int)(x/((n/2)/tasks)),
-                                    0,
-                                    MPI_COMM_WORLD,
-                                    MPI_STATUS_IGNORE );
-                MPI_Sendrecv(
-                                    &vec[IndexToBeProcessed[x]+halfsize],
-                                    1,
-                                    MPI_C_COMPLEX,
-                                    0,
-                                    1,
-                                    &vec[IndexToBeProcessed[x]+halfsize],
-                                    1,
-                                    MPI_C_COMPLEX,
-                                    (int)(x/((n/2)/tasks)),
-                                    1,
-                                    MPI_COMM_WORLD,
-                                    MPI_STATUS_IGNORE );
+                
+                double real_temp,imag_temp;
+
+                int sender=(int)(x/((n/2)/tasks));
+
+                //Envio y recepcion del primer complejo
+                if( iam == sender && iam != 0){
+                    real_temp = creal(vec[IndexToBeProcessed[x]]);
+                    MPI_Ssend(&real_temp, 1,  MPI_DOUBLE, 0, (int)(x/((n/2)/tasks)), MPI_COMM_WORLD);
+                }
+                if(iam == 0 && sender != 0){
+                    MPI_Recv(&real_temp, 1, MPI_DOUBLE, (int)(x/((n/2)/tasks)), (int)(x/((n/2)/tasks)), MPI_COMM_WORLD, &status);
+                }
+                if( iam == sender && iam != 0){
+                    imag_temp = cimag(vec[IndexToBeProcessed[x]]);
+                    MPI_Ssend(&imag_temp, 1,  MPI_DOUBLE, 0, (int)(x/((n/2)/tasks)), MPI_COMM_WORLD);
+                }
+                if(iam == 0 && sender != 0){
+                    MPI_Recv(&imag_temp, 1, MPI_DOUBLE, (int)(x/((n/2)/tasks)), (int)(x/((n/2)/tasks)), MPI_COMM_WORLD, &status);
+                    vec[IndexToBeProcessed[x]] =  real_temp + imag_temp * I;
+                }
+                //Envio y recepcion del segundo complejo
+                
+                if( iam == sender && iam != 0){
+                    real_temp = creal(vec[IndexToBeProcessed[x]+halfsize]);
+                    MPI_Ssend(&real_temp, 1,  MPI_DOUBLE, 0, (int)(x/((n/2)/tasks)), MPI_COMM_WORLD);
+                }
+                if(iam == 0 && sender != 0){
+                    MPI_Recv(&real_temp, 1, MPI_DOUBLE, (int)(x/((n/2)/tasks)), (int)(x/((n/2)/tasks)), MPI_COMM_WORLD, &status);
+                }
+                if( iam == sender && iam != 0){
+                    imag_temp = cimag(vec[IndexToBeProcessed[x]+halfsize]);
+                    MPI_Ssend(&imag_temp, 1,  MPI_DOUBLE, 0, (int)(x/((n/2)/tasks)), MPI_COMM_WORLD);
+                }
+                if(iam == 0 && sender != 0){
+                    MPI_Recv(&imag_temp, 1, MPI_DOUBLE, (int)(x/((n/2)/tasks)), (int)(x/((n/2)/tasks)), MPI_COMM_WORLD, &status);
+                    vec[IndexToBeProcessed[x]+halfsize] =  real_temp + imag_temp * I;
+                }
+                
+                
+                
+                
+                MPI_Barrier(MPI_COMM_WORLD);
+
+                
+               
+              
+               
             }
+            
             MPI_Barrier(MPI_COMM_WORLD);
             MPI_Bcast(vec,n, MPI_C_COMPLEX,0,MPI_COMM_WORLD);
             if (size == n)break;
         }
 
 
-    if(iam == 0){
-        for(int i = 0;i < n;i++)printf("%f + %fi\n", creal(vec[i]), cimag(vec[i]));
-    }
+    if(iam == 0)for(int i = 0;i < n;i++)printf("%d: %f + %fi\n",i, creal(vec[i]), cimag(vec[i]));
+    
     
     MPI_Finalize();
 	free(exptable);
@@ -154,24 +189,25 @@ static size_t reverse_bits(size_t val, int width) {
 
 
 int main(int argc, char *argv[]){
-    size_t n = 3;
+    size_t n = 7;
     
     double complex array[n+1];
     array[0] = 2;
     array[1] = 3;
     array[2] = -1;
     array[3] = 1;
-    /*
+   
     array[4] = 2;
     array[5] = 3;
     array[6] = -1;
     array[7] = 1;
-    */
+    
     Fft_transform(array,n+1,false,argc,argv);
     /*
     for(int i = 0;i <= n;i++){
       printf("%f + %fi\n", creal(array[i]), cimag(array[i]));
-    }
+    }           
     */
+   
     return 0;
 }

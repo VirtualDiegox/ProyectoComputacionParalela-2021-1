@@ -3,7 +3,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fft-complex.h"
+
+
+#include <complex.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+
 #include <sys/time.h>
 
 // Private function prototypes
@@ -11,16 +17,6 @@ static size_t reverse_bits(size_t val, int width);
 static void *memdup(const void *src, size_t n);
 
 
-bool Fft_transform(double complex vec[], size_t n, bool inverse) {
-	if (n == 0)
-		return true;
-	else if ((n & (n - 1)) == 0) {
-		return Fft_transformRadix2(vec, n, inverse);
-
-	} // Is power of 2	
-	else  // More complicated algorithm for arbitrary sizes
-		return printf("NO es potencia de 2");
-}
 
 
 bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse) {
@@ -71,6 +67,16 @@ bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse) {
 }
 
 
+bool Fft_transform(double complex vec[], size_t n, bool inverse) {
+	if (n == 0)
+		return true;
+	else if ((n & (n - 1)) == 0) {
+		return Fft_transformRadix2(vec, n, inverse);
+
+	} // Is power of 2	
+	else  // More complicated algorithm for arbitrary sizes
+		return printf("NO es potencia de 2");
+}
 
 static size_t reverse_bits(size_t val, int width) {
 	size_t result = 0;
@@ -82,7 +88,7 @@ static size_t reverse_bits(size_t val, int width) {
 
 
 int main(){
-    //size_t n = 3;
+    size_t n = 8;
     
 	struct timeval* tval_before,* tval_after,* tval_result;
     tval_before = (struct timeval*)malloc(sizeof(struct timeval));
@@ -90,29 +96,33 @@ int main(){
     tval_result = (struct timeval*)malloc(sizeof(struct timeval));
 
 
-    //double complex array[n];
-    //array[0] = 2;
-    //array[1] = 3;
-    //array[2] = -1;
-    //array[3] = 1;
+    double complex array[n];
+    array[0] = 2;
+    array[1] = 3;
+    array[2] = -1;
+    array[3] = 1;
+	array[4] = 2;
+    array[5] = 3;
+    array[6] = -1;
+    array[7] = 1;
 
-	size_t n = 4194304;
-    double complex array[n+1];
-    for(int i=0;i<n+1;i++){
-        array[i]=rand()%100;
-    }
+	//size_t n = 4194304;
+    //double complex array[n+1];
+    //for(int i=0;i<n+1;i++){
+        //array[i]=rand()%100;
+    //}
 	
 
 
 	gettimeofday(tval_before, NULL);
-    Fft_transform(array,n+1,false);
+    Fft_transform(array,n,false);
 	gettimeofday(tval_after, NULL);
 	timersub(tval_after, tval_before, tval_result);
     printf("%ld.%06ld\n", (long int)tval_result->tv_sec, (long int)tval_result->tv_usec);
 		
-    //for(int i = 0;i <= n;i++){
-      //printf("%f + %fi\n", creal(array[i]), cimag(array[i]));
-    //}
+    for(int i = 0;i < n;i++){
+      printf("%d: %f + %fi\n",i, creal(array[i]), cimag(array[i]));
+    }
     return 0;
 }
 

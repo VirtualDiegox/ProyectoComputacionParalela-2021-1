@@ -34,3 +34,4 @@
 filefftomp
 filefft
 filefftcuda
+FFT_MPI

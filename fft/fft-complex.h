@@ -39,7 +39,7 @@ extern "C" {
  * The vector can have any length. This is a wrapper function. The inverse transform does not perform scaling,
  * so it is not a true inverse. Returns true if successful, false otherwise (out of memory).
  */
-bool Fft_transform(double complex vec[], size_t n, bool inverse);
+bool Fft_transform(double complex vec[], size_t n, bool inverse,int argc, char *argv[]);
 
 
 /* 
@@ -47,7 +47,7 @@ bool Fft_transform(double complex vec[], size_t n, bool inverse);
  * The vector's length must be a power of 2. Uses the Cooley-Tukey decimation-in-time radix-2 algorithm.
  * Returns true if successful, false otherwise (n is not a power of 2, or out of memory).
  */
-bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse);
+bool Fft_transformRadix2(double complex vec[], size_t n, bool inverse,int argc, char *argv[]);
 
 
 /* 
