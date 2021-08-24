@@ -25,6 +25,8 @@
 
 #include <complex>
 #include <vector>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 
 
 namespace Fft {
@@ -33,14 +35,14 @@ namespace Fft {
 	 * Computes the discrete Fourier transform (DFT) of the given complex vector, storing the result back into the vector.
 	 * The vector can have any length. This is a wrapper function. The inverse transform does not perform scaling, so it is not a true inverse.
 	 */
-	void transform(std::vector<std::complex<double> > &vec, bool inverse,int hilos,int bloques);
+	void transform(thrust::host_vector<std::complex<double> > &vec, bool inverse,int hilos,int bloques);
 	
 	
 	/* 
 	 * Computes the discrete Fourier transform (DFT) of the given complex vector, storing the result back into the vector.
 	 * The vector's length must be a power of 2. Uses the Cooley-Tukey decimation-in-time radix-2 algorithm.
 	 */
-	void transformRadix2(std::vector<std::complex<double> > &vec, bool inverse,int hilos,int bloques);
+	void transformRadix2(thrust::host_vector<std::complex<double> > &vec, bool inverse,int hilos,int bloques);
 	
 	
 	/* 
