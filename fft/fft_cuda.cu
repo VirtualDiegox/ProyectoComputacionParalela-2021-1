@@ -23,11 +23,46 @@ using std::size_t;
 using std::uintmax_t;
 
 
-__global__ void transformCUDA(int *bloques,size_t *n,size_t *size,size_t *halfsize,size_t *tablestep, complex<double> *vec,complex<double> *expTable){
+__global__ void transformCUDA(int *bloques,size_t *n,size_t *size,size_t *halfsize,size_t *tablestep, complex<double> *vec,complex<double> *expTable,int * IndexToBeProcessed){
 	int index = threadIdx.x + blockIdx.x * blockDim.x; 
     int hilos = blockDim.x * (*bloques);
+	int from = (int)(((*n/2)/hilos)*index);
+	int to = (int)(((*n/2)/hilos)*(index+1))-1;
+	//if (index == hilos-1){
+		//to = (int)(*n/2 - 1);
+	//}
+	 
+	
+	IndexToBeProcessed[0]= 0;
+	for (int x = 1;x < *n/2;x++){
+		if((IndexToBeProcessed[x-1]+1)% *halfsize==0){
+			IndexToBeProcessed[x] = IndexToBeProcessed[x-1] + (int)*halfsize + 1;
+		}else{
+			IndexToBeProcessed[x] = IndexToBeProcessed[x-1] + 1;
+		}
+        
+        //printf("index %d to be processed: %d\n",x,IndexToBeProcessed[x]);
+        if (x == *n/2) break;      
+    }
 
-	for (size_t i = 0; i < *n; i += *size) {
+
+	for(int j = from;j<=to;j++){
+		size_t k = *tablestep*(IndexToBeProcessed[j]%*size);
+        size_t l = IndexToBeProcessed[j] + *halfsize;
+
+		double temp_real = real(vec[l]) * real(expTable[k]) - imag(vec[l]) * imag(expTable[k]);
+		double temp_img = real(vec[l]) * imag(expTable[k]) + imag(vec[l]) * real(expTable[k]);
+		
+		double vec_real = real(vec[IndexToBeProcessed[j]]);
+		double vec_img = imag(vec[IndexToBeProcessed[j]]);
+		complex<double>temp(vec_real-temp_real,vec_img-temp_img);
+
+		vec[l] = temp;
+		complex<double>temp2(vec_real+temp_real,vec_img+temp_img);
+		vec[IndexToBeProcessed[j]] = temp2;
+	}
+	
+	/*for (size_t i = 0; i < *n; i += *size) {
 		for (size_t j = i, k = 0; j < i + *halfsize; j++, k += *tablestep) {
 			//complex<double> temp = vec[j + *halfsize] * expTable[k];
 			//vec[j + *halfsize] = vec[j] - temp;
@@ -44,7 +79,7 @@ __global__ void transformCUDA(int *bloques,size_t *n,size_t *size,size_t *halfsi
 
 			
 		}
-	}
+	}*/
 
 
 }
@@ -108,7 +143,7 @@ void Fft::transformRadix2(thrust::host_vector<complex<double> > &vec, bool inver
     tval_before = (struct timeval*)malloc(sizeof(struct timeval));
     tval_after = (struct timeval*)malloc(sizeof(struct timeval));
     tval_result = (struct timeval*)malloc(sizeof(struct timeval));
-	
+	int IndexToBeProcessed [n/2];
 
 
 	
@@ -118,6 +153,9 @@ void Fft::transformRadix2(thrust::host_vector<complex<double> > &vec, bool inver
 		size_t halfsize = size / 2;
 		size_t tablestep = n / size;
 		size_t *d_halfsize,*d_tablestep,*d_size;
+		int * d_IndexToBeProcessed;
+		cudaMalloc((void **)&d_IndexToBeProcessed, sizeof(int)*(n/2));
+		
 		cudaMalloc((void **)&d_halfsize, sizeof(size_t));
 		cudaMalloc((void **)&d_tablestep, sizeof(size_t));
 		cudaMalloc((void **)&d_size, sizeof(size_t));
@@ -125,11 +163,13 @@ void Fft::transformRadix2(thrust::host_vector<complex<double> > &vec, bool inver
 		cudaMemcpy(d_halfsize, &halfsize, sizeof(size_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(d_tablestep, &tablestep, sizeof(size_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(d_size, &size, sizeof(size_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_IndexToBeProcessed, &IndexToBeProcessed, sizeof(int)*(n/2), cudaMemcpyHostToDevice);
+
 
 		cudaStream_t stream;
     	cudaStreamCreate(&stream);
 		
-		transformCUDA<<<bloques,hilos,0,stream>>>(d_bloques,d_n,d_size,d_halfsize,d_tablestep,d_vec_pointer,d_expTable_pointer);
+		transformCUDA<<<bloques,hilos,0,stream>>>(d_bloques,d_n,d_size,d_halfsize,d_tablestep,d_vec_pointer,d_expTable_pointer,d_IndexToBeProcessed);
 		cudaStreamSynchronize(stream);
 
 		cudaFree(d_halfsize);
@@ -177,7 +217,7 @@ int main(int argc, char *argv[]) {
 	int bloques = atoi(argv[2]);
 	
 	
-	size_t n = 4;
+	size_t n = 16384;
 	
 	
 	testFft(n,hilos, bloques);
@@ -191,18 +231,19 @@ static void testFft(int n,int hilos,int bloques) {
 	
 	const thrust::host_vector<complex<double> > input = randomComplexes(n);
 	
-	//thrust::host_vector<complex<double> > actual = input;
-	thrust::host_vector<complex<double> > actual (n);
-	actual[0] = 2;
-    actual[1] = 3;
-    actual[2] = -1;
-    actual[3] = 1;
+	thrust::host_vector<complex<double> > actual = input;
+	//thrust::host_vector<complex<double> > actual (n);
+	//actual[0] = 2;
+    //actual[1] = 3;
+    //actual[2] = -1;
+    //actual[3] = 1;
+	
 	
 	Fft::transform(actual, false,hilos, bloques);
 
-	for(int i = 0;i < n;i++){
-      printf("%f + %fi\n", real(actual[i]), imag(actual[i]));
-    }
+	//for(int i = 0;i < n;i++){
+      //printf("%f + %fi\n", real(actual[i]), imag(actual[i]));
+    //}
 	
 }
 
